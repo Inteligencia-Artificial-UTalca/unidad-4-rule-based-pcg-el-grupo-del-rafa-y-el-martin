@@ -8,8 +8,26 @@
  * 
  * Parámetros del algoritmo:
  * - W, H: Dimensiones del mapa (ancho x alto)
- * - J: Número de movimientos que realizará el agente
- * - I: Número de pasos por cada movimiento
+ * - J: Número de movimientos que realizará e    std::cout << "\n--- Main Simulation Finished ---" << std::endl;
+    
+    // Estadísticas finales
+    int totalCells = mapRows * mapCols;
+    int filledCells = 0;
+    for (const auto& row : myMap) {
+        for (int cell : row) {
+            if (cell == 1) filledCells++;
+        }
+    }
+    
+    std::cout << "Final Statistics:" << std::endl;
+    std::cout << "Total cells: " << totalCells << std::endl;
+    std::cout << "Filled cells: " << filledCells << std::endl;
+    std::cout << "Fill percentage: " << (100.0 * filledCells / totalCells) << "%" << std::endl;
+    
+    // Probar solo el autómata celular
+    testCellularAutomataOnly();
+    
+    return 0;ero de pasos por cada movimiento
  * - A: Probabilidad inicial de generar habitación (valor inicial)
  * - B: Incremento de probabilidad cuando no se genera habitación
  * - C: Probabilidad inicial de cambiar dirección (valor inicial)
@@ -39,10 +57,133 @@ void printMap(const Map& map) {
     std::cout << "-------------------" << std::endl;
 }
 
-// Placeholder para el autómata celular (no implementado aquí)
-Map cellularAutomata(const Map& currentMap, int W, int H, int R, double U) {
-    Map newMap = currentMap;
-    return newMap;
+// Función para inicializar el mapa con ruido aleatorio
+Map initializeWithNoise(int W, int H, double density = 0.45) {
+    Map map(H, std::vector<int>(W, 0));
+    std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
+    std::uniform_real_distribution<double> chance(0.0, 1.0);
+    
+    std::cout << "Initializing map with random noise (density: " << density << ")" << std::endl;
+    
+    for (int i = 0; i < H; ++i) {
+        for (int j = 0; j < W; ++j) {
+            if (chance(rng) < density) {
+                map[i][j] = 1;
+            }
+        }
+    }
+    
+    return map;
+}
+
+// Autómata celular implementado sin usar segunda grilla
+// Usa un enfoque de procesamiento en franjas para evitar conflictos
+Map cellularAutomata(const Map& currentMap, int W, int H, int R, int U, int iterations) {
+    Map workMap = currentMap;
+    std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
+    std::uniform_int_distribution<int> randBit(0, 1);
+    
+    std::cout << "\n=== Cellular Automata Processing ===" << std::endl;
+    std::cout << "Parameters: R=" << R << ", U=" << U << ", Iterations=" << iterations << std::endl;
+    
+    for (int iter = 0; iter < iterations; ++iter) {
+        std::cout << "CA Iteration " << (iter + 1) << "/" << iterations << std::endl;
+        
+        // Procesar la grilla de manera que evite conflictos
+        // Usamos un patrón de tablero de ajedrez: primero casillas "negras", luego "blancas"
+        for (int phase = 0; phase < 2; ++phase) {
+            for (int i = 0; i < H; ++i) {
+                for (int j = 0; j < W; ++j) {
+                    // Solo procesar casillas que corresponden a la fase actual
+                    if ((i + j) % 2 != phase) continue;
+                    
+                    int neighbors = 0;
+                    
+                    // Contar vecinos en un radio cuadrado R
+                    for (int di = -R; di <= R; ++di) {
+                        for (int dj = -R; dj <= R; ++dj) {
+                            if (di == 0 && dj == 0) continue; // No contar la celda central
+                            
+                            int ni = i + di;
+                            int nj = j + dj;
+                            
+                            // Manejar bordes - consideramos como 1 (muros)
+                            if (ni < 0 || ni >= H || nj < 0 || nj >= W) {
+                                neighbors++;
+                            } else {
+                                neighbors += workMap[ni][nj];
+                            }
+                        }
+                    }
+                    
+                    // Aplicar regla del autómata celular
+                    if (neighbors >= U) {
+                        workMap[i][j] = 1;
+                    } else {
+                        workMap[i][j] = 0;
+                    }
+                }
+            }
+        }
+    }
+    
+    std::cout << "Cellular Automata processing completed" << std::endl;
+    return workMap;
+}
+
+// Implementación alternativa del autómata celular que procesa de izquierda a derecha
+// evitando conflictos al procesar secuencialmente
+Map cellularAutomataAlternative(const Map& currentMap, int W, int H, int R, int U, int iterations) {
+    Map workMap = currentMap;
+    std::cout << "\n=== Alternative Cellular Automata (In-Place Processing) ===" << std::endl;
+    std::cout << "Parameters: R=" << R << ", U=" << U << ", Iterations=" << iterations << std::endl;
+    
+    for (int iter = 0; iter < iterations; ++iter) {
+        std::cout << "CA Alternative Iteration " << (iter + 1) << "/" << iterations << std::endl;
+        
+        // Procesar secuencialmente pero almacenar cambios en variables temporales
+        // para aplicarlos después de calcular cada fila
+        std::vector<int> rowChanges(W);
+        
+        for (int i = 0; i < H; ++i) {
+            // Calcular todos los cambios para esta fila
+            for (int j = 0; j < W; ++j) {
+                int neighbors = 0;
+                
+                // Contar vecinos en un radio cuadrado R
+                for (int di = -R; di <= R; ++di) {
+                    for (int dj = -R; dj <= R; ++dj) {
+                        if (di == 0 && dj == 0) continue; // No contar la celda central
+                        
+                        int ni = i + di;
+                        int nj = j + dj;
+                        
+                        // Manejar bordes - consideramos como 1 (muros)
+                        if (ni < 0 || ni >= H || nj < 0 || nj >= W) {
+                            neighbors++;
+                        } else {
+                            neighbors += workMap[ni][nj];
+                        }
+                    }
+                }
+                
+                // Calcular nuevo valor
+                if (neighbors >= U) {
+                    rowChanges[j] = 1;
+                } else {
+                    rowChanges[j] = 0;
+                }
+            }
+            
+            // Aplicar todos los cambios de la fila al mismo tiempo
+            for (int j = 0; j < W; ++j) {
+                workMap[i][j] = rowChanges[j];
+            }
+        }
+    }
+    
+    std::cout << "Alternative Cellular Automata processing completed" << std::endl;
+    return workMap;
 }
 
 Map drunkAgent(const Map& currentMap, int W, int H, int J, int I, int roomSizeX, int roomSizeY,
@@ -285,52 +426,91 @@ void testDrunkAgentConfigurations() {
     }
 }
 
+// Función para probar solo el autómata celular con diferentes enfoques
+void testCellularAutomataOnly() {
+    std::cout << "\n=== TESTING CELLULAR AUTOMATA ONLY ===" << std::endl;
+    
+    int W = 25, H = 15;
+    Map map1 = initializeWithNoise(W, H, 0.42);
+    Map map2 = map1; // Copia para comparar métodos
+    
+    std::cout << "\nInitial random map:" << std::endl;
+    printMap(map1);
+    
+    // Método 1: Patrón de tablero de ajedrez
+    std::cout << "\n--- Method 1: Checkerboard Pattern ---" << std::endl;
+    map1 = cellularAutomata(map1, W, H, 1, 4, 3);
+    std::cout << "Result after 3 iterations:" << std::endl;
+    printMap(map1);
+    
+    // Método 2: Procesamiento por filas
+    std::cout << "\n--- Method 2: Row-by-Row Processing ---" << std::endl;
+    map2 = cellularAutomataAlternative(map2, W, H, 1, 4, 3);
+    std::cout << "Result after 3 iterations:" << std::endl;
+    printMap(map2);
+    
+    // Comparar estadísticas
+    int filled1 = 0, filled2 = 0;
+    for (const auto& row : map1) {
+        for (int cell : row) if (cell == 1) filled1++;
+    }
+    for (const auto& row : map2) {
+        for (int cell : row) if (cell == 1) filled2++;
+    }
+    
+    std::cout << "\nComparison:" << std::endl;
+    std::cout << "Method 1 fill: " << (100.0 * filled1 / (W * H)) << "%" << std::endl;
+    std::cout << "Method 2 fill: " << (100.0 * filled2 / (W * H)) << "%" << std::endl;
+}
+
 int main() {
     std::cout << "--- CELLULAR AUTOMATA AND DRUNK AGENT SIMULATION ---" << std::endl;
 
     int mapRows = 15;
     int mapCols = 25;
-    Map myMap(mapRows, std::vector<int>(mapCols, 0));
+    
+    // Inicializar con ruido aleatorio para el autómata celular
+    Map myMap = initializeWithNoise(mapCols, mapRows, 0.45);
 
-    // Inicializar agente en posición aleatoria (-1, -1 indica primera ejecución)
-    int drunkAgentX = -1;
-    int drunkAgentY = -1;
-
-    std::cout << "\nInitial map state:" << std::endl;
+    std::cout << "\nInitial map state (random noise):" << std::endl;
     printMap(myMap);
 
     int numIterations = 3;
 
-    // Parámetros de Cellular Automata (sin efecto aún)
+    // Parámetros de Cellular Automata
     int ca_W = mapCols;
     int ca_H = mapRows;
-    int ca_R = 1;
-    double ca_U = 0.5;
+    int ca_R = 1;        // Radio del vecindario
+    int ca_U = 4;        // Umbral de vecinos (cambiado a int)
+    int ca_iterations = 2; // Iteraciones del autómata
 
     // Parámetros del Drunk Agent
     int da_W = mapCols;
     int da_H = mapRows;
-    int da_J = 8;        // Número de movimientos
-    int da_I = 6;        // Pasos por movimiento
-    int da_roomSizeX = 4; // Ancho de habitación
+    int da_J = 6;        // Número de movimientos
+    int da_I = 4;        // Pasos por movimiento
+    int da_roomSizeX = 3; // Ancho de habitación
     int da_roomSizeY = 3; // Alto de habitación
-    double da_probGenerateRoom = 0.15;    // Probabilidad inicial A
-    double da_probIncreaseRoom = 0.08;    // Incremento B
-    double da_probChangeDirection = 0.25; // Probabilidad inicial C
-    double da_probIncreaseChange = 0.05;  // Incremento D
+    double da_probGenerateRoom = 0.2;    // Probabilidad inicial A
+    double da_probIncreaseRoom = 0.1;    // Incremento B
+    double da_probChangeDirection = 0.3; // Probabilidad inicial C
+    double da_probIncreaseChange = 0.08;  // Incremento D
 
     for (int iteration = 0; iteration < numIterations; ++iteration) {
         std::cout << "\n========== Iteration " << iteration + 1 << " ==========" << std::endl;
 
-        // Paso del autómata celular (a implementar)
-        // myMap = cellularAutomata(myMap, ca_W, ca_H, ca_R, ca_U);
+        // Paso del autómata celular
+        myMap = cellularAutomata(myMap, ca_W, ca_H, ca_R, ca_U, ca_iterations);
+
+        std::cout << "\nMap after Cellular Automata:" << std::endl;
+        printMap(myMap);
 
         // Usar la versión mejorada del agente borracho
         myMap = enhancedDrunkAgent(myMap, da_W, da_H, da_J, da_I, da_roomSizeX, da_roomSizeY,
                                   da_probGenerateRoom, da_probIncreaseRoom,
                                   da_probChangeDirection, da_probIncreaseChange);
 
-        std::cout << "\nMap after iteration " << iteration + 1 << ":" << std::endl;
+        std::cout << "\nMap after Drunk Agent:" << std::endl;
         printMap(myMap);
     }
 
@@ -353,10 +533,8 @@ int main() {
     // Probar diferentes configuraciones del agente
     testDrunkAgentConfigurations();
     
-    return 0;
-
-    // Probar diferentes configuraciones del Drunk Agent
-    testDrunkAgentConfigurations();
-
+    // Probar solo el autómata celular
+    testCellularAutomataOnly();
+    
     return 0;
 }
