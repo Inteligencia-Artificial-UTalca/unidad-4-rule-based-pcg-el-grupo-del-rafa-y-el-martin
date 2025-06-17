@@ -16,6 +16,7 @@ void printMap(const Map& map) {
     std::cout << "-------------------" << std::endl;
 }
 
+// Placeholder para el autómata celular (no implementado aquí)
 Map cellularAutomata(const Map& currentMap, int W, int H, int R, double U) {
     Map newMap = currentMap;
     return newMap;
@@ -38,25 +39,30 @@ Map drunkAgent(const Map& currentMap, int W, int H, int J, int I, int roomSizeX,
 
     for (int j = 0; j < J; ++j) {
         for (int i = 0; i < I; ++i) {
-            // Draw room
+            // Intentar generar una habitación centrada
             if (chance(rng) < roomProb) {
                 int roomWidth = std::uniform_int_distribution<int>(1, roomSizeX)(rng);
                 int roomHeight = std::uniform_int_distribution<int>(1, roomSizeY)(rng);
+
+                int startX = agentX - roomHeight / 2;
+                int startY = agentY - roomWidth / 2;
+
                 for (int dy = 0; dy < roomHeight; ++dy) {
                     for (int dx = 0; dx < roomWidth; ++dx) {
-                        int nx = agentX + dx;
-                        int ny = agentY + dy;
+                        int nx = startX + dy;
+                        int ny = startY + dx;
                         if (nx >= 0 && nx < H && ny >= 0 && ny < W) {
                             newMap[nx][ny] = 1;
                         }
                     }
                 }
-                roomProb = probGenerateRoom;
+
+                roomProb = probGenerateRoom;  // reset
             } else {
-                roomProb += probIncreaseRoom;
+                roomProb += probIncreaseRoom;  // increase
             }
 
-            // Change direction
+            // Cambio de dirección
             if (chance(rng) < dirProb) {
                 dir = dirDist(rng);
                 dirProb = probChangeDirection;
@@ -64,7 +70,7 @@ Map drunkAgent(const Map& currentMap, int W, int H, int J, int I, int roomSizeX,
                 dirProb += probIncreaseChange;
             }
 
-            // Move agent
+            // Mover agente
             agentX += directions[dir].first;
             agentY += directions[dir].second;
 
@@ -73,7 +79,7 @@ Map drunkAgent(const Map& currentMap, int W, int H, int J, int I, int roomSizeX,
             if (agentY < 0) agentY = 0;
             if (agentY >= W) agentY = W - 1;
 
-            newMap[agentX][agentY] = 1;
+            newMap[agentX][agentY] = 1;  // marcar paso
         }
     }
 
@@ -95,11 +101,13 @@ int main() {
 
     int numIterations = 5;
 
+    // Parámetros de Cellular Automata (sin efecto aún)
     int ca_W = mapCols;
     int ca_H = mapRows;
     int ca_R = 1;
     double ca_U = 0.5;
 
+    // Parámetros del Drunk Agent
     int da_W = mapCols;
     int da_H = mapRows;
     int da_J = 5;
@@ -114,7 +122,10 @@ int main() {
     for (int iteration = 0; iteration < numIterations; ++iteration) {
         std::cout << "\n--- Iteration " << iteration + 1 << " ---" << std::endl;
 
+        // Paso del autómata celular (a implementar)
         myMap = cellularAutomata(myMap, ca_W, ca_H, ca_R, ca_U);
+
+        // Paso del agente borracho
         myMap = drunkAgent(myMap, da_W, da_H, da_J, da_I, da_roomSizeX, da_roomSizeY,
                            da_probGenerateRoom, da_probIncreaseRoom,
                            da_probChangeDirection, da_probIncreaseChange,
