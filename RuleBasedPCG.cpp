@@ -10,6 +10,10 @@
  * - W, H: Dimensiones del mapa (ancho x alto)
  * - J: Número de movimientos que realizará e    std::cout << "\n--- Main Simulation Finished ---" << std::endl;
     
+    // Mostrar el mapa final
+    std::cout << "\nFINAL GENERATED MAP:" << std::endl;
+    printMap(myMap);
+    
     // Estadísticas finales
     int totalCells = mapRows * mapCols;
     int filledCells = 0;
@@ -19,7 +23,7 @@
         }
     }
     
-    std::cout << "Final Statistics:" << std::endl;
+    std::cout << "\nFinal Statistics:" << std::endl;
     std::cout << "Total cells: " << totalCells << std::endl;
     std::cout << "Filled cells: " << filledCells << std::endl;
     std::cout << "Fill percentage: " << (100.0 * filledCells / totalCells) << "%" << std::endl;
@@ -76,12 +80,10 @@ Map initializeWithNoise(int W, int H, double density = 0.45) {
     return map;
 }
 
-// Autómata celular implementado sin usar segunda grilla
-// Usa un enfoque de procesamiento en franjas para evitar conflictos
+// Autómata celular que NO sobreescribe la grilla original
+// Usa una grilla temporal para calcular todos los cambios antes de aplicarlos
 Map cellularAutomata(const Map& currentMap, int W, int H, int R, int U, int iterations) {
     Map workMap = currentMap;
-    std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
-    std::uniform_int_distribution<int> randBit(0, 1);
     
     std::cout << "\n=== Cellular Automata Processing ===" << std::endl;
     std::cout << "Parameters: R=" << R << ", U=" << U << ", Iterations=" << iterations << std::endl;
@@ -89,42 +91,42 @@ Map cellularAutomata(const Map& currentMap, int W, int H, int R, int U, int iter
     for (int iter = 0; iter < iterations; ++iter) {
         std::cout << "CA Iteration " << (iter + 1) << "/" << iterations << std::endl;
         
-        // Procesar la grilla de manera que evite conflictos
-        // Usamos un patrón de tablero de ajedrez: primero casillas "negras", luego "blancas"
-        for (int phase = 0; phase < 2; ++phase) {
-            for (int i = 0; i < H; ++i) {
-                for (int j = 0; j < W; ++j) {
-                    // Solo procesar casillas que corresponden a la fase actual
-                    if ((i + j) % 2 != phase) continue;
-                    
-                    int neighbors = 0;
-                    
-                    // Contar vecinos en un radio cuadrado R
-                    for (int di = -R; di <= R; ++di) {
-                        for (int dj = -R; dj <= R; ++dj) {
-                            if (di == 0 && dj == 0) continue; // No contar la celda central
-                            
-                            int ni = i + di;
-                            int nj = j + dj;
-                            
-                            // Manejar bordes - consideramos como 1 (muros)
-                            if (ni < 0 || ni >= H || nj < 0 || nj >= W) {
-                                neighbors++;
-                            } else {
-                                neighbors += workMap[ni][nj];
-                            }
+        // Crear una grilla temporal para almacenar los nuevos valores
+        Map tempMap(H, std::vector<int>(W, 0));
+        
+        // Calcular todos los nuevos valores basándose en la grilla actual
+        for (int i = 0; i < H; ++i) {
+            for (int j = 0; j < W; ++j) {
+                int neighbors = 0;
+                
+                // Contar vecinos en un radio cuadrado R
+                for (int di = -R; di <= R; ++di) {
+                    for (int dj = -R; dj <= R; ++dj) {
+                        if (di == 0 && dj == 0) continue; // No contar la celda central
+                        
+                        int ni = i + di;
+                        int nj = j + dj;
+                        
+                        // Manejar bordes - consideramos como 1 (muros)
+                        if (ni < 0 || ni >= H || nj < 0 || nj >= W) {
+                            neighbors++;
+                        } else {
+                            neighbors += workMap[ni][nj]; // Usar la grilla actual, no la temporal
                         }
                     }
-                    
-                    // Aplicar regla del autómata celular
-                    if (neighbors >= U) {
-                        workMap[i][j] = 1;
-                    } else {
-                        workMap[i][j] = 0;
-                    }
+                }
+                
+                // Aplicar regla del autómata celular y guardar en grilla temporal
+                if (neighbors >= U) {
+                    tempMap[i][j] = 1;
+                } else {
+                    tempMap[i][j] = 0;
                 }
             }
         }
+        
+        // Copiar todos los cambios de la grilla temporal a la grilla de trabajo
+        workMap = tempMap;
     }
     
     std::cout << "Cellular Automata processing completed" << std::endl;
@@ -387,7 +389,14 @@ void testDrunkAgentConfigurations() {
         std::cout << "\n--- Configuration 1: Conservative Agent ---" << std::endl;
         int W = 20, H = 15;
         Map map1(H, std::vector<int>(W, 0));
+        
+        std::cout << "Initial empty map:" << std::endl;
+        printMap(map1);
+        
         map1 = enhancedDrunkAgent(map1, W, H, 6, 8, 3, 3, 0.1, 0.03, 0.15, 0.02);
+        
+        std::cout << "Final conservative agent map:" << std::endl;
+        printMap(map1);
         
         int filled = 0;
         for (const auto& row : map1) {
@@ -401,7 +410,14 @@ void testDrunkAgentConfigurations() {
         std::cout << "\n--- Configuration 2: Aggressive Agent ---" << std::endl;
         int W = 20, H = 15;
         Map map2(H, std::vector<int>(W, 0));
+        
+        std::cout << "Initial empty map:" << std::endl;
+        printMap(map2);
+        
         map2 = enhancedDrunkAgent(map2, W, H, 10, 4, 5, 4, 0.3, 0.15, 0.4, 0.1);
+        
+        std::cout << "Final aggressive agent map:" << std::endl;
+        printMap(map2);
         
         int filled = 0;
         for (const auto& row : map2) {
@@ -415,14 +431,20 @@ void testDrunkAgentConfigurations() {
         std::cout << "\n--- Configuration 3: Balanced Agent ---" << std::endl;
         int W = 20, H = 15;
         Map map3(H, std::vector<int>(W, 0));
+        
+        std::cout << "Initial empty map:" << std::endl;
+        printMap(map3);
+        
         map3 = enhancedDrunkAgent(map3, W, H, 8, 6, 4, 3, 0.2, 0.08, 0.25, 0.05);
+        
+        std::cout << "Final balanced agent map:" << std::endl;
+        printMap(map3);
         
         int filled = 0;
         for (const auto& row : map3) {
             for (int cell : row) if (cell == 1) filled++;
         }
         std::cout << "Fill percentage: " << (100.0 * filled / (W * H)) << "%" << std::endl;
-        printMap(map3);
     }
 }
 
@@ -431,36 +453,49 @@ void testCellularAutomataOnly() {
     std::cout << "\n=== TESTING CELLULAR AUTOMATA ONLY ===" << std::endl;
     
     int W = 25, H = 15;
-    Map map1 = initializeWithNoise(W, H, 0.42);
-    Map map2 = map1; // Copia para comparar métodos
+    Map map = initializeWithNoise(W, H, 0.42);
     
     std::cout << "\nInitial random map:" << std::endl;
-    printMap(map1);
+    printMap(map);
     
-    // Método 1: Patrón de tablero de ajedrez
-    std::cout << "\n--- Method 1: Checkerboard Pattern ---" << std::endl;
-    map1 = cellularAutomata(map1, W, H, 1, 4, 3);
-    std::cout << "Result after 3 iterations:" << std::endl;
-    printMap(map1);
+    // Aplicar iteraciones una por una para ver la evolución
+    std::cout << "\n--- Cellular Automata Evolution ---" << std::endl;
+    for (int i = 1; i <= 5; ++i) {
+        map = cellularAutomata(map, W, H, 1, 4, 1); // 1 iteración a la vez
+        
+        std::cout << "\nAfter iteration " << i << ":" << std::endl;
+        printMap(map);
+        
+        // Calcular estadísticas
+        int filled = 0;
+        for (const auto& row : map) {
+            for (int cell : row) if (cell == 1) filled++;
+        }
+        std::cout << "Fill percentage: " << (100.0 * filled / (W * H)) << "%" << std::endl;
+    }
     
-    // Método 2: Procesamiento por filas
-    std::cout << "\n--- Method 2: Row-by-Row Processing ---" << std::endl;
-    map2 = cellularAutomataAlternative(map2, W, H, 1, 4, 3);
-    std::cout << "Result after 3 iterations:" << std::endl;
+    // Probar con diferentes parámetros
+    std::cout << "\n--- Testing Different Parameters ---" << std::endl;
+    
+    // Prueba con umbral más alto
+    Map map2 = initializeWithNoise(W, H, 0.5);
+    std::cout << "\nHigh threshold test (U=6):" << std::endl;
+    std::cout << "Initial map:" << std::endl;
     printMap(map2);
     
-    // Comparar estadísticas
-    int filled1 = 0, filled2 = 0;
-    for (const auto& row : map1) {
-        for (int cell : row) if (cell == 1) filled1++;
-    }
-    for (const auto& row : map2) {
-        for (int cell : row) if (cell == 1) filled2++;
-    }
+    map2 = cellularAutomata(map2, W, H, 1, 6, 3);
+    std::cout << "After 3 iterations with U=6:" << std::endl;
+    printMap(map2);
     
-    std::cout << "\nComparison:" << std::endl;
-    std::cout << "Method 1 fill: " << (100.0 * filled1 / (W * H)) << "%" << std::endl;
-    std::cout << "Method 2 fill: " << (100.0 * filled2 / (W * H)) << "%" << std::endl;
+    // Prueba con umbral más bajo
+    Map map3 = initializeWithNoise(W, H, 0.3);
+    std::cout << "\nLow threshold test (U=2):" << std::endl;
+    std::cout << "Initial map:" << std::endl;
+    printMap(map3);
+    
+    map3 = cellularAutomata(map3, W, H, 1, 2, 3);
+    std::cout << "After 3 iterations with U=2:" << std::endl;
+    printMap(map3);
 }
 
 int main() {
